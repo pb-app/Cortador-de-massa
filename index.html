@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Central - Guilhotinas</title>
+    <!-- Fontes do Google e Ícones -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --bg-color: #f0f2f5;
+            --card-bg: #ffffff;
+            --primary: #0056b3;
+            --text-main: #333333;
+            --text-muted: #6c757d;
+            --success: #28a745;
+            --danger: #dc3545;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+            color: var(--text-main);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #ddd;
+            padding-bottom: 10px;
+        }
+
+        .header h1 {
+            margin: 0;
+            color: var(--primary);
+            font-size: 1.5rem;
+        }
+
+        .badge-turno {
+            background-color: var(--text-main);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        .grid-maquinas {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .card-maquina {
+            background-color: var(--card-bg);
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            border-left: 5px solid var(--text-muted); /* Cor muda com o status */
+        }
+
+        .card-maquina.online { border-left-color: var(--success); }
+        .card-maquina.offline { border-left-color: var(--danger); }
+
+        .maquina-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .status-badge {
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: white;
+        }
+
+        .online .status-badge { background-color: var(--success); }
+        .offline .status-badge { background-color: var(--danger); }
+
+        .dados-producao p {
+            margin: 8px 0;
+            font-size: 1.1rem;
+        }
+
+        .dados-producao span {
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        /* Seção de Controle / Adicionar Receitas */
+        .painel-controle {
+            background-color: var(--card-bg);
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .form-receita {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .input-group label {
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .input-group input, .input-group select {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+
+        button.btn-enviar {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 1rem;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.3s;
+            height: 42px;
+        }
+
+        button.btn-enviar:hover {
+            background-color: #004494;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1><i class="fas fa-industry"></i> Gestão de Produção</h1>
+        <div class="badge-turno"><i class="fas fa-clock"></i> Supervisor Turno 3</div>
+    </div>
+
+    <!-- Grid de Máquinas (Será preenchido dinamicamente pelo Firebase) -->
+    <div class="grid-maquinas" id="container-maquinas">
+        
+        <!-- Exemplo Máquina 1 (Simulação Visual) -->
+        <div class="card-maquina online" id="maquina-1">
+            <div class="maquina-header">
+                <h2>Cortador 01</h2>
+                <span class="status-badge">RODANDO</span>
+            </div>
+            <div class="dados-producao">
+                <p>Receita Atual: <span>Tarugo 190 (44cm)</span></p>
+                <p>Cortes no Turno: <span>1.450</span></p>
+                <p>Ritmo: <span>~ 480 cortes/hora</span></p>
+            </div>
+        </div>
+
+        <!-- Exemplo Máquina 2 (Simulação Visual) -->
+        <div class="card-maquina offline" id="maquina-2">
+            <div class="maquina-header">
+                <h2>Cortador 02</h2>
+                <span class="status-badge">PARADO</span>
+            </div>
+            <div class="dados-producao">
+                <p>Receita Atual: <span>Mesa 10cm</span></p>
+                <p>Cortes no Turno: <span>0</span></p>
+                <p>Ritmo: <span>0 cortes/hora</span></p>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Formulário para Injetar Receita Remotamente -->
+    <div class="painel-controle">
+        <h2><i class="fas fa-paper-plane"></i> Enviar Nova Receita</h2>
+        <div class="form-receita">
+            <div class="input-group">
+                <label>Selecione a Máquina</label>
+                <select id="alvo-maquina">
+                    <option value="cortador_1">Cortador 01</option>
+                    <option value="cortador_2">Cortador 02</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>Nome da Receita</label>
+                <input type="text" id="nova-receita-nome" placeholder="Ex: Tarugo Especial">
+            </div>
+            <div class="input-group">
+                <label>Tamanho (cm)</label>
+                <input type="number" id="nova-receita-tam" placeholder="Ex: 50.5" step="0.1">
+            </div>
+            <button class="btn-enviar" onclick="enviarReceita()">Enviar para a Máquina</button>
+        </div>
+    </div>
+
+    <!-- Scripts do Firebase (Versão 8 compatível para script direto) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <script>
+        // ==========================================
+        // 1. CONFIGURAÇÃO DO FIREBASE
+        // (Você substituirá essas chaves pelas do seu projeto real no Firebase)
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "SUA_API_KEY_AQUI",
+            authDomain: "seu-projeto.firebaseapp.com",
+            databaseURL: "https://seu-projeto-default-rtdb.firebaseio.com",
+            projectId: "seu-projeto",
+            storageBucket: "seu-projeto.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456:web:abcdef"
+        };
+
+        // Inicializa o Firebase
+        // firebase.initializeApp(firebaseConfig);
+        // const database = firebase.database();
+
+        // ==========================================
+        // 2. FUNÇÕES DE INTERAÇÃO (Simulação inicial)
+        // ==========================================
+        function enviarReceita() {
+            const maquina = document.getElementById('alvo-maquina').value;
+            const nome = document.getElementById('nova-receita-nome').value;
+            const tam = document.getElementById('nova-receita-tam').value;
+
+            if(nome === '' || tam === '') {
+                alert("Preencha todos os campos da receita!");
+                return;
+            }
+
+            // Aqui entrará o código para salvar no Firebase:
+            /*
+            database.ref('maquinas/' + maquina + '/comando_nova_receita').set({
+                nome: nome,
+                tamanhoCm: parseFloat(tam),
+                timestamp: Date.now()
+            });
+            */
+            
+            alert(`Sucesso! Receita ${nome} (${tam}cm) enviada para ${maquina}.`);
+            
+            // Limpa os campos
+            document.getElementById('nova-receita-nome').value = '';
+            document.getElementById('nova-receita-tam').value = '';
+        }
+
+        // Aqui entrará o código 'on.value' do Firebase para escutar a 
+        // produção das máquinas em tempo real e desenhar os cards na tela.
+    </script>
+</body>
+</html>
