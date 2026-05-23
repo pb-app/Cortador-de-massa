@@ -59,23 +59,7 @@
 
     <!-- Grid de Máquinas (Visualização) -->
     <div class="grid-maquinas" id="container-maquinas">
-        <div class="card-maquina online" id="maquina-1">
-            <div class="maquina-header">
-                <h2>Cortador 01</h2>
-                <span class="status-badge">RODANDO</span>
-            </div>
-            <p>Receita: <b>Tarugo 190 (44cm)</b></p>
-            <p>Cortes: <b>1.450</b></p>
-        </div>
-        
-        <div class="card-maquina offline" id="maquina-2">
-            <div class="maquina-header">
-                <h2>Cortador 02</h2>
-                <span class="status-badge">PARADO</span>
-            </div>
-            <p>Receita: <b>Mesa 10cm</b></p>
-            <p>Cortes: <b>0</b></p>
-        </div>
+        <!-- O Firebase vai desenhar as máquinas aqui automaticamente -->
     </div>
 
     <div class="grid-controle">
@@ -85,12 +69,9 @@
             <div class="form-receita">
                 <div class="input-group">
                     <label>Selecione o Alvo</label>
-                    <!-- O evento onchange avisa o sistema que você trocou de máquina -->
                     <select id="alvo-maquina" onchange="atualizarListaReceitas()">
                         <option value="" disabled selected>Escolha...</option>
                         <option value="todos" style="font-weight: bold; color: var(--primary);">=> Todos os Cortadores</option>
-                        <option value="cortador_01">Cortador 01</option>
-                        <option value="cortador_02">Cortador 02</option>
                     </select>
                 </div>
                 <div class="input-group">
@@ -115,56 +96,121 @@
         </div>
     </div>
 
+    <!-- Scripts do Firebase v8 (Compatível para HTML direto) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
     <script>
-        // Simulação de banco de dados (Isso virá do Firebase depois)
-        const bancoDeDadosSimulado = {
-            "cortador_01": [
-                { nome: "Tarugo 190", tamanho: 44.0 },
-                { nome: "Mesa 10", tamanho: 10.0 }
-            ],
-            "cortador_02": [
-                { nome: "Tarugo 140", tamanho: 39.0 }
-            ]
+        // ==========================================
+        // 1. CONFIGURAÇÃO DO FIREBASE (Suas Chaves)
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyCQ7NtswbecbZBZ-epD5-cmUL-zzI42ph0",
+            authDomain: "cortador-de-massas.firebaseapp.com",
+            databaseURL: "https://cortador-de-massas-default-rtdb.firebaseio.com", // <-- Adicionado para o Banco de Dados funcionar!
+            projectId: "cortador-de-massas",
+            storageBucket: "cortador-de-massas.firebasestorage.app",
+            messagingSenderId: "824669320111",
+            appId: "1:824669320111:web:37a544472a56097f88f55a",
+            measurementId: "G-ZSMLVQFZTQ"
         };
 
-        // 1. Cadastrar Máquina
-        function cadastrarNovaMaquina() {
-            let nomeMaquina = prompt("Digite a ID da nova máquina (ex: cortador_03):");
-            if(nomeMaquina) {
-                alert(`Máquina '${nomeMaquina}' preparada no sistema! Quando o ESP32 dela conectar na internet, ela aparecerá no painel.`);
-                // No futuro, isso criará um nó no Firebase.
-            }
-        }
+        // Inicializa o Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
 
-        // 2. Mostrar receitas ao selecionar a máquina
+        let bancoDeDadosInterno = {}; 
+
+        // ==========================================
+        // 2. ESCUTAR MÁQUINAS EM TEMPO REAL
+        // ==========================================
+        database.ref('maquinas').on('value', (snapshot) => {
+            const container = document.getElementById('container-maquinas');
+            const selectAlvo = document.getElementById('alvo-maquina');
+            
+            // Salva a seleção atual do select para não perder ao atualizar
+            const selecaoAtual = selectAlvo.value; 
+
+            container.innerHTML = ''; 
+            bancoDeDadosInterno = {}; 
+            
+            // Reseta as opções do Select (mantendo apenas o 'Todos')
+            selectAlvo.innerHTML = `
+                <option value="" disabled ${selecaoAtual === "" ? "selected" : ""}>Escolha...</option>
+                <option value="todos" style="font-weight: bold; color: var(--primary);" ${selecaoAtual === "todos" ? "selected" : ""}>=> Todos os Cortadores</option>
+            `;
+
+            if (snapshot.exists()) {
+                const maquinas = snapshot.val();
+                
+                for (const idMaquina in maquinas) {
+                    const dados = maquinas[idMaquina];
+                    const statusClass = dados.status === 'ON' ? 'online' : 'offline';
+                    const badgeText = dados.status === 'ON' ? 'RODANDO' : 'PARADO';
+                    const receitaNome = dados.receitaAtual || 'Nenhuma';
+                    const cortesCount = dados.cortes || 0;
+
+                    // Cria o visual do Card
+                    const cardHTML = `
+                        <div class="card-maquina ${statusClass}" id="${idMaquina}">
+                            <div class="maquina-header">
+                                <h2>${idMaquina.toUpperCase().replace('_', ' ')}</h2>
+                                <span class="status-badge">${badgeText}</span>
+                            </div>
+                            <p>Receita: <b>${receitaNome}</b></p>
+                            <p>Cortes no Turno: <b>${cortesCount}</b></p>
+                        </div>
+                    `;
+                    container.insertAdjacentHTML('beforeend', cardHTML);
+
+                    // Adiciona a máquina no menu de Seleção
+                    const novaOpcao = document.createElement('option');
+                    novaOpcao.value = idMaquina;
+                    novaOpcao.text = idMaquina.toUpperCase().replace('_', ' ');
+                    if(idMaquina === selecaoAtual) novaOpcao.selected = true;
+                    selectAlvo.appendChild(novaOpcao);
+
+                    if(dados.receitasSalvas) {
+                        bancoDeDadosInterno[idMaquina] = dados.receitasSalvas;
+                    }
+                }
+                atualizarListaReceitas(); 
+            } else {
+                container.innerHTML = '<p style="color: #666; width: 100%;">Aguardando conexão das máquinas... <br>Clique em "+ Nova Máquina" acima para começar.</p>';
+            }
+        });
+
+        // ==========================================
+        // 3. ATUALIZAR BARRA LATERAL DE RECEITAS
+        // ==========================================
         function atualizarListaReceitas() {
             const maquina = document.getElementById('alvo-maquina').value;
             const lista = document.getElementById('lista-receitas-salvas');
             const aviso = document.getElementById('aviso-receitas');
             
-            lista.innerHTML = ""; // Limpa a lista
+            lista.innerHTML = ""; 
 
             if (maquina === "todos") {
-                aviso.innerText = "Modo 'Todos' selecionado. A receita será enviada para todas as guilhotinas.";
-                return; // Sai da função, não mostra receitas.
+                aviso.innerText = "Modo 'Todos' selecionado. Comando geral.";
+                return;
             } 
             
-            if (maquina) {
-                aviso.innerText = `Mostrando receitas atuais de: ${maquina}`;
-                // No futuro, isso fará um 'database.ref' no Firebase. Aqui é a simulação:
-                let receitasDaMaquina = bancoDeDadosSimulado[maquina] || [];
+            if (maquina && bancoDeDadosInterno[maquina]) {
+                aviso.innerText = `Mostrando receitas de: ${maquina}`;
+                const receitas = bancoDeDadosInterno[maquina];
                 
-                if(receitasDaMaquina.length === 0) {
-                    lista.innerHTML = "<li>Sem receitas cadastradas.</li>";
-                } else {
-                    receitasDaMaquina.forEach(rec => {
-                        lista.innerHTML += `<li><span>${rec.nome}</span> <b>${rec.tamanho} cm</b></li>`;
-                    });
+                for (const chave in receitas) {
+                    const rec = receitas[chave];
+                    lista.innerHTML += `<li><span>${rec.nome}</span> <b>${rec.tamanhoCm} cm</b></li>`;
                 }
+            } else if(maquina) {
+                lista.innerHTML = "<li>Sem receitas cadastradas.</li>";
             }
         }
 
-        // 3. Enviar Receita (Indivídual ou Todos)
+        // ==========================================
+        // 4. ENVIAR RECEITA (FIREBASE)
+        // ==========================================
         function enviarReceita() {
             const maquina = document.getElementById('alvo-maquina').value;
             const nome = document.getElementById('nova-receita-nome').value;
@@ -173,16 +219,46 @@
             if(!maquina) { alert("Selecione um alvo!"); return; }
             if(!nome || !tam) { alert("Preencha o nome e tamanho!"); return; }
 
+            const comando = {
+                nome: nome,
+                tamanhoCm: parseFloat(tam),
+                timestamp: Date.now() 
+            };
+
             if (maquina === "todos") {
-                // Loop que enviará para todas as máquinas no Firebase
-                alert(`COMANDO EM MASSA: Receita '${nome}' (${tam}cm) sendo disparada para TODOS os cortadores!`);
+                const select = document.getElementById('alvo-maquina');
+                for (let i = 0; i < select.options.length; i++) {
+                    const val = select.options[i].value;
+                    if (val !== "" && val !== "todos") {
+                        database.ref('maquinas/' + val + '/comando_receita').set(comando);
+                    }
+                }
+                alert(`COMANDO EM MASSA: Receita enviada para todas as máquinas!`);
             } else {
-                // Envia só para a específica
-                alert(`Sucesso: Receita '${nome}' enviada para ${maquina}.`);
+                database.ref('maquinas/' + maquina + '/comando_receita').set(comando);
+                alert(`Sucesso: Receita enviada para ${maquina}.`);
             }
 
             document.getElementById('nova-receita-nome').value = '';
             document.getElementById('nova-receita-tam').value = '';
+        }
+
+        // ==========================================
+        // 5. CADASTRAR NOVA MÁQUINA
+        // ==========================================
+        function cadastrarNovaMaquina() {
+            let nomeMaquina = prompt("Digite a ID da nova máquina (ex: cortador_01):");
+            if(nomeMaquina) {
+                nomeMaquina = nomeMaquina.toLowerCase().replace(' ', '_');
+                
+                database.ref('maquinas/' + nomeMaquina).set({
+                    status: "OFF",
+                    receitaAtual: "Aguardando...",
+                    cortes: 0
+                });
+                
+                alert(`Máquina '${nomeMaquina}' criada no sistema!`);
+            }
         }
     </script>
 </body>
