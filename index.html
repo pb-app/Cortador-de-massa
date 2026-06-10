@@ -302,53 +302,39 @@
         function excluirMaquina(id) { if (confirm(`Excluir '${id}'?`)) database.ref('maquinas/' + id).remove(); }
         function excluirReceitaSalva(idMq, idRec) { if (confirm("Apagar receita?")) database.ref('maquinas/' + idMq + '/receitasSalvas/' + idRec).remove(); }
         
-        function atualizarListaReceitas() {
-            const maquina = document.getElementById('alvo-maquina').value;
-            const lista = document.getElementById('lista-receitas-salvas');
-            lista.innerHTML = ""; 
-            if (maquina && maquina !== "todos" && dadosGlobaisMaquinas[maquina]?.receitasSalvas) {
-                const receitas = dadosGlobaisMaquinas[maquina].receitasSalvas;
-                for (const ch in receitas) lista.innerHTML += `<li><span>${receitas[ch].nome} <b>(${receitas[ch].tamanhoCm} cm)</b></span> <button class="btn-excluir-rec" onclick="excluirReceitaSalva('${maquina}', '${ch}')"><i class="fas fa-times"></i></button></li>`;
-            } else { lista.innerHTML = "<li>Sem receitas cadastradas.</li>"; }
+        // 1. Atualizar a lista para incluir o botão de Editar
+function atualizarListaReceitas() {
+    const maquina = document.getElementById('alvo-maquina').value;
+    const lista = document.getElementById('lista-receitas-salvas');
+    lista.innerHTML = ""; 
+    if (maquina && maquina !== "todos" && dadosGlobaisMaquinas[maquina]?.receitasSalvas) {
+        const receitas = dadosGlobaisMaquinas[maquina].receitasSalvas;
+        for (const ch in receitas) {
+            lista.innerHTML += `
+                <li>
+                    <span>${receitas[ch].nome} <b>(${receitas[ch].tamanhoCm} cm)</b></span>
+                    <div>
+                        <button onclick="abrirEditor('${maquina}', '${ch}', '${receitas[ch].nome}')" style="background:#007bff; color:white; border:none; padding:5px; border-radius:4px; margin-right:5px;">Ajustar</button>
+                        <button class="btn-excluir-rec" onclick="excluirReceitaSalva('${maquina}', '${ch}')"><i class="fas fa-times"></i></button>
+                    </div>
+                </li>`;
         }
+    } else { lista.innerHTML = "<li>Sem receitas.</li>"; }
+}
 
-        function enviarComandos() {
-            const maquina = document.getElementById('alvo-maquina').value;
-            const nome = document.getElementById('nova-receita-nome').value;
-            const tam = document.getElementById('nova-receita-tam').value;
-            const meta = document.getElementById('nova-meta-turno').value;
-            const desc = document.getElementById('nova-receita-desc').value;
-            const sub = document.getElementById('nova-receita-sub').value;
-
-            if(!maquina) { alert("Selecione um alvo!"); return; }
-            if(!nome && !tam && !meta) { alert("Preencha a receita ou a meta para enviar!"); return; }
-
-            const alvos = maquina === "todos" 
-                ? Array.from(document.getElementById('alvo-maquina').options).map(o => o.value).filter(v => v && v !== "todos") 
-                : [maquina];
-
-            alvos.forEach(alvo => {
-                if(nome && tam) {
-                    database.ref('maquinas/' + alvo + '/comando_receita').set({ 
-                        nome: nome, 
-                        tamanhoCm: parseFloat(tam), 
-                        atrDesc: parseInt(desc) || 150,
-                        atrSub: parseInt(sub) || 150,
-                        timestamp: Date.now() 
-                    });
-                }
-                if(meta) {
-                    database.ref('maquinas/' + alvo + '/metaTurno').set(parseInt(meta));
-                }
-            });
-
-            alert("Comandos enviados com sucesso!");
-            document.getElementById('nova-receita-nome').value = ''; 
-            document.getElementById('nova-receita-tam').value = ''; 
-            document.getElementById('nova-meta-turno').value = '';
-            document.getElementById('nova-receita-desc').value = '150';
-            document.getElementById('nova-receita-sub').value = '150';
-        }
+// 2. Função simples para ajustar tempos (abriria um prompt ou modal)
+function abrirEditor(maquina, ch, nome) {
+    let desc = prompt("Novo tempo de DESCIDA para " + nome + " (ms):", "150");
+    let sub = prompt("Novo tempo de SUBIDA para " + nome + " (ms):", "150");
+    
+    if(desc && sub) {
+        database.ref('maquinas/' + maquina + '/receitasSalvas/' + ch).update({
+            atrDesc: parseInt(desc),
+            atrSub: parseInt(sub)
+        });
+        alert("Tempos atualizados para " + nome);
+    }
+}
 
         function cadastrarNovaMaquina() {
             let n = prompt("ID da máquina (ex: cortador_01):");
