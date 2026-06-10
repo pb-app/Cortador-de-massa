@@ -300,7 +300,19 @@
         }, 2000);
 
         function excluirMaquina(id) { if (confirm(`Excluir '${id}'?`)) database.ref('maquinas/' + id).remove(); }
-        function excluirReceitaSalva(idMq, idRec) { if (confirm("Apagar receita?")) database.ref('maquinas/' + idMq + '/receitasSalvas/' + idRec).remove(); }
+        function excluirReceitaSalva(idMq, idRec) {
+    if (confirm("Apagar receita?")) {
+        // 1. Deleta a receita
+        database.ref('maquinas/' + idMq + '/receitasSalvas/' + idRec).remove().then(() => {
+            // 2. Atualiza o contador de receitas da máquina para o ESP32 perceber a mudança
+            database.ref('maquinas/' + idMq + '/receitasSalvas').once('value', (snapshot) => {
+                const count = snapshot.exists() ? Object.keys(snapshot.val()).length : 0;
+                database.ref('maquinas/' + idMq + '/totalReceitasWeb').set(count);
+                alert("Receita excluída!");
+            });
+        });
+    }
+}
         
         // 1. Atualizar a lista para incluir o botão de Editar
 function atualizarListaReceitas() {
@@ -340,6 +352,59 @@ function abrirEditor(maquina, ch, nome) {
             let n = prompt("ID da máquina (ex: cortador_01):");
             if(n) database.ref('maquinas/' + n.toLowerCase().replace(' ', '_')).set({ receitaAtual: "Aguardando...", cortes: 0, ultimoCorteTempo: 0, metaTurno: 0 });
         }
+
+        function enviarComandos() {
+    const maquina = document.getElementById('alvo-maquina').value;
+    const nome = document.getElementById('nova-receita-nome').value;
+    const tam = document.getElementById('nova-receita-tam').value;
+    const meta = document.getElementById('nova-meta-turno').value;
+    const desc = document.getElementById('nova-receita-desc').value;
+    const sub = document.getElementById('nova-receita-sub').value;
+
+    if(!maquina) { alert("Selecione um alvo!"); return; }
+    if(!nome && !tam && !meta) { alert("Preencha a receita ou a meta para enviar!"); return; }
+
+    const alvos = maquina === "todos" 
+        ? Object.keys(dadosGlobaisMaquinas) 
+        : [maquina];
+
+    alvos.forEach(alvo => {
+        if(nome && tam) {
+            // Cria a nova receita no Firebase
+            const novaRef = database.ref('maquinas/' + alvo + '/receitasSalvas').push();
+            novaRef.set({ 
+                nome: nome, 
+                tamanhoCm: parseFloat(tam), 
+                atrDesc: parseInt(desc) || 150,
+                atrSub: parseInt(sub) || 150
+            }).then(() => {
+                // Atualiza o contador de receitas (o tal "totalReceitasWeb")
+                database.ref('maquinas/' + alvo + '/receitasSalvas').once('value', (snapshot) => {
+                    const count = snapshot.exists() ? Object.keys(snapshot.val()).length : 0;
+                    database.ref('maquinas/' + alvo + '/totalReceitasWeb').set(count);
+                });
+            });
+            
+            // Envia comando para a máquina rodar a receita agora
+            database.ref('maquinas/' + alvo + '/comando_receita').set({ 
+                nome: nome, 
+                tamanhoCm: parseFloat(tam), 
+                atrDesc: parseInt(desc) || 150,
+                atrSub: parseInt(sub) || 150,
+                timestamp: Date.now() 
+            });
+        }
+        if(meta) {
+            database.ref('maquinas/' + alvo + '/metaTurno').set(parseInt(meta));
+        }
+    });
+
+    alert("Comandos enviados!");
+    document.getElementById('nova-receita-nome').value = ''; 
+    document.getElementById('nova-receita-tam').value = ''; 
+    document.getElementById('nova-meta-turno').value = '';
+}
+        
     </script>
 </body>
 </html>
