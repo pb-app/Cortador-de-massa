@@ -45,11 +45,11 @@
         .painel-controle, .painel-receitas { background-color: var(--card-bg); border-radius: 10px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         
         .form-receita { display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end; margin-top: 15px; }
-        .input-group { display: flex; flex-direction: column; flex: 1; min-width: 150px; }
-        .input-group label { font-size: 0.9rem; margin-bottom: 5px; font-weight: bold; }
-        .input-group input, .input-group select { padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 1rem; }
+        .input-group { display: flex; flex-direction: column; flex: 1; min-width: 100px; }
+        .input-group label { font-size: 0.85rem; margin-bottom: 5px; font-weight: bold; }
+        .input-group input, .input-group select { padding: 8px; border: 1px solid #ccc; border-radius: 5px; font-size: 0.95rem; }
         
-        button.btn-enviar { background-color: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 5px; font-size: 1rem; cursor: pointer; font-weight: bold; height: 42px; }
+        button.btn-enviar { background-color: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 5px; font-size: 1rem; cursor: pointer; font-weight: bold; height: 38px; }
         
         .lista-receitas { list-style: none; padding: 0; margin: 0; margin-top: 15px; max-height: 200px; overflow-y: auto;}
         .lista-receitas li { background: #f8f9fa; margin-bottom: 5px; padding: 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; border-left: 3px solid var(--primary);}
@@ -74,22 +74,32 @@
         <div class="painel-controle">
             <h2><i class="fas fa-paper-plane"></i> Enviar Comando Remoto</h2>
             <div class="form-receita">
-                <div class="input-group">
+                <div class="input-group" style="min-width: 150px;">
                     <label>Selecione o Alvo</label>
                     <select id="alvo-maquina" onchange="atualizarListaReceitas()">
                         <option value="" disabled selected>Escolha...</option>
                         <option value="todos" style="font-weight: bold; color: var(--primary);">=> Todos os Cortadores</option>
                     </select>
                 </div>
-                <div class="input-group">
+                <div class="input-group" style="min-width: 150px;">
                     <label>Nome da Receita</label>
                     <input type="text" id="nova-receita-nome" placeholder="Ex: Tarugo">
                 </div>
-                <div class="input-group" style="min-width: 100px;">
-                    <label>Tam. (cm)</label>
+                <div class="input-group" style="max-width: 80px;">
+                    <label>Tam(cm)</label>
                     <input type="number" id="nova-receita-tam" step="0.1">
                 </div>
-                <div class="input-group" style="min-width: 100px;">
+                
+                <div class="input-group" style="max-width: 90px;">
+                    <label title="Atraso Descida">Desc. (ms)</label>
+                    <input type="number" id="nova-receita-desc" placeholder="150" value="150">
+                </div>
+                <div class="input-group" style="max-width: 90px;">
+                    <label title="Atraso Subida">Sub. (ms)</label>
+                    <input type="number" id="nova-receita-sub" placeholder="150" value="150">
+                </div>
+
+                <div class="input-group" style="max-width: 100px;">
                     <label>Meta Turno</label>
                     <input type="number" id="nova-meta-turno" placeholder="Ex: 5000">
                 </div>
@@ -126,9 +136,6 @@
         let dadosGlobaisMaquinas = {}; 
         const TEMPO_LIMITE_PARADA = 60000; 
 
-        // ==========================================
-        // LÓGICA DE TURNOS E EFICIÊNCIA
-        // ==========================================
         function obterDadosDoTurno() {
             const agora = new Date();
             const hora = agora.getHours();
@@ -155,9 +162,6 @@
             return { nome: nomeTurno, minutos: minutosDecorridos };
         }
 
-        // ==========================================
-        // ATUALIZAÇÃO FLUÍDA DA TELA (SEM PISCAR)
-        // ==========================================
         database.ref('maquinas').on('value', (snapshot) => {
             const container = document.getElementById('container-maquinas');
             const selectAlvo = document.getElementById('alvo-maquina');
@@ -165,7 +169,6 @@
             if (snapshot.exists()) {
                 dadosGlobaisMaquinas = snapshot.val();
 
-                // 1. Remove máquinas que foram excluídas do Firebase
                 Array.from(container.children).forEach(card => {
                     const idMaquina = card.id.replace('card-', '');
                     if (!dadosGlobaisMaquinas[idMaquina]) {
@@ -175,14 +178,12 @@
                     }
                 });
                 
-                // 2. Atualiza ou Cria os cartões
                 for (const idMaquina in dadosGlobaisMaquinas) {
                     const dados = dadosGlobaisMaquinas[idMaquina];
                     const receitaNome = dados.receitaAtual || 'Nenhuma';
                     const cortesCount = dados.cortes || 0;
                     const metaTurno = dados.metaTurno || 0;
 
-                    // Verifica instantaneamente se está a cortar para não mostrar "ANALISANDO"
                     const tempoUltimoCorte = dados.ultimoCorteTempo || 0; 
                     const diferencaTempo = Date.now() - tempoUltimoCorte;
                     
@@ -198,7 +199,6 @@
                     let cardExistente = document.getElementById(`card-${idMaquina}`);
 
                     if (!cardExistente) {
-                        // Se o cartão não existir, desenha pela primeira vez
                         const cardHTML = `
                             <div class="card-maquina ${classStatus}" id="card-${idMaquina}">
                                 <div class="maquina-header">
@@ -221,7 +221,6 @@
                         `;
                         container.insertAdjacentHTML('beforeend', cardHTML);
 
-                        // Adiciona na caixa de Seleção
                         if(!selectAlvo.querySelector(`option[value="${idMaquina}"]`)){
                             const novaOpcao = document.createElement('option');
                             novaOpcao.value = idMaquina;
@@ -229,12 +228,10 @@
                             selectAlvo.appendChild(novaOpcao);
                         }
                     } else {
-                        // Se o cartão já existe, ATUALIZA APENAS OS TEXTOS (Sem piscar a tela)
                         document.getElementById(`receita-${idMaquina}`).innerText = receitaNome;
                         document.getElementById(`cortes-${idMaquina}`).innerText = cortesCount;
                         document.getElementById(`meta-${idMaquina}`).innerText = metaTurno > 0 ? metaTurno : 'Não definida';
                         
-                        // Atualiza as cores instantaneamente
                         const badge = document.getElementById(`badge-${idMaquina}`);
                         badge.innerText = txtBadge;
                         
@@ -251,9 +248,6 @@
             }
         });
 
-        // ==========================================
-        // MOTOR DE OEE EM TEMPO REAL
-        // ==========================================
         setInterval(() => {
             const agora = Date.now();
             const dadosTurno = obterDadosDoTurno();
@@ -285,7 +279,6 @@
                         textoTempo.innerText = `Parado há ${Math.floor((diferencaTempo / 1000) / 60)} min.`;
                     }
 
-                    // CÁLCULO DE EFICIÊNCIA (RITMO)
                     const meta = dados.metaTurno || 0;
                     const cortesReais = dados.cortes || 0;
 
@@ -306,9 +299,6 @@
             }
         }, 2000);
 
-        // ==========================================
-        // OUTRAS FUNÇÕES
-        // ==========================================
         function excluirMaquina(id) { if (confirm(`Excluir '${id}'?`)) database.ref('maquinas/' + id).remove(); }
         function excluirReceitaSalva(idMq, idRec) { if (confirm("Apagar receita?")) database.ref('maquinas/' + idMq + '/receitasSalvas/' + idRec).remove(); }
         
@@ -327,6 +317,8 @@
             const nome = document.getElementById('nova-receita-nome').value;
             const tam = document.getElementById('nova-receita-tam').value;
             const meta = document.getElementById('nova-meta-turno').value;
+            const desc = document.getElementById('nova-receita-desc').value;
+            const sub = document.getElementById('nova-receita-sub').value;
 
             if(!maquina) { alert("Selecione um alvo!"); return; }
             if(!nome && !tam && !meta) { alert("Preencha a receita ou a meta para enviar!"); return; }
@@ -337,7 +329,13 @@
 
             alvos.forEach(alvo => {
                 if(nome && tam) {
-                    database.ref('maquinas/' + alvo + '/comando_receita').set({ nome: nome, tamanhoCm: parseFloat(tam), timestamp: Date.now() });
+                    database.ref('maquinas/' + alvo + '/comando_receita').set({ 
+                        nome: nome, 
+                        tamanhoCm: parseFloat(tam), 
+                        atrDesc: parseInt(desc) || 150,
+                        atrSub: parseInt(sub) || 150,
+                        timestamp: Date.now() 
+                    });
                 }
                 if(meta) {
                     database.ref('maquinas/' + alvo + '/metaTurno').set(parseInt(meta));
@@ -345,7 +343,11 @@
             });
 
             alert("Comandos enviados com sucesso!");
-            document.getElementById('nova-receita-nome').value = ''; document.getElementById('nova-receita-tam').value = ''; document.getElementById('nova-meta-turno').value = '';
+            document.getElementById('nova-receita-nome').value = ''; 
+            document.getElementById('nova-receita-tam').value = ''; 
+            document.getElementById('nova-meta-turno').value = '';
+            document.getElementById('nova-receita-desc').value = '150';
+            document.getElementById('nova-receita-sub').value = '150';
         }
 
         function cadastrarNovaMaquina() {
